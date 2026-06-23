@@ -34,9 +34,12 @@ const FILE_BASE_URL = str(env.FILE_BASE_URL, 'http://localhost/leadpusher').repl
 const LOCAL_DOWNLOAD_DIR = path.resolve(str(env.LOCAL_DOWNLOAD_DIR, 'downloads'));
 
 // ---- Redis ------------------------------------------------------------------
+// Defaults point at the DEDICATED, isolated instances from docker-compose.yml
+// (non-default ports + own vhost/creds) so this project's data never mixes with
+// — or appears in the management portal of — any other RabbitMQ/Redis.
 const redis = {
   host: str(env.REDIS_HOST, '127.0.0.1'),
-  port: int(env.REDIS_PORT, 6379),
+  port: int(env.REDIS_PORT, 6380), // dedicated Redis (compose maps 6380 -> 6379)
   password: env.REDIS_PASSWORD || undefined,
   db: int(env.REDIS_DB, 0),
   keyPrefix: '', // we build fully-qualified keys ourselves (vendor namespaced)
@@ -44,7 +47,8 @@ const redis = {
 
 // ---- RabbitMQ ---------------------------------------------------------------
 const rabbit = {
-  url: str(env.RABBITMQ_URL, 'amqp://localhost'),
+  // dedicated broker on :5673 with its own user + vhost "leadpusher"
+  url: str(env.RABBITMQ_URL, 'amqp://leadpusher:leadpusher@localhost:5673/leadpusher'),
   // queue/exchange names are vendor-namespaced
   queue: `${VENDOR_FOLDER_NAME}.leads`,
   retryQueue: `${VENDOR_FOLDER_NAME}.leads.retry`,

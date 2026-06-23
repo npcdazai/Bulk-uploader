@@ -17,12 +17,14 @@ Files are stored in **XAMPP / Apache `htdocs`** (in place of S3).
 
 ## Quick start
 ```bash
-# 1) infra (native)
-brew services start redis rabbitmq        # or systemctl on Linux
+# 1) infra — DEDICATED, isolated Redis + RabbitMQ (own ports, won't mix with
+#    or appear in any other broker's portal). Runs RabbitMQ :5673 / UI :15673
+#    and Redis :6380.
+cd uploader && docker compose up -d
 # start XAMPP (Apache) and: mkdir -p "$HTDOCS_BASE_PATH"
 
 # 2) backend
-cd uploader && cp .env.example .env && npm install
+cp .env.example .env && npm install
 npm test                                   # dedupe decision unit test
 npm run pm2:start                          # runs all 5 processes
 

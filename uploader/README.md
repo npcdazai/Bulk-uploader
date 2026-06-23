@@ -66,18 +66,30 @@ exact values the operator chose (they are not hardcoded).
 - **Graceful shutdown.** `SIGINT`/`SIGTERM` drains in-flight work and flushes the
   final partial summary batch before exit.
 
-## Prerequisites (native installs)
+## Prerequisites — DEDICATED, isolated Redis + RabbitMQ
+
+This project runs its **own** Redis and RabbitMQ on **non-default ports** with their
+own credentials + vhost, so its queues/keys are physically separate from any other
+broker/cache on the machine and **never appear in another tool's management portal**
+(and nothing from other brokers appears here).
+
+| Service | This project | Default (other tools) |
+|---------|--------------|-----------------------|
+| RabbitMQ AMQP | `localhost:5673` (vhost `leadpusher`) | 5672 |
+| RabbitMQ UI | http://localhost:15673 | 15672 |
+| Redis | `localhost:6380` | 6379 |
 
 ```bash
-# macOS (Homebrew)
-brew install redis rabbitmq
-brew services start redis
-brew services start rabbitmq        # management UI: http://localhost:15672 (guest/guest)
-
-# Linux (apt)
-sudo apt-get install -y redis-server rabbitmq-server
-sudo systemctl enable --now redis-server rabbitmq-server
+# Recommended: dedicated instances via Docker (isolated by construction)
+cd uploader
+docker compose up -d            # starts leadpusher-rabbitmq + leadpusher-redis
+docker compose down             # stop
 ```
+
+Native alternative (if you can't use Docker): run a **second** Redis on `6380` and a
+**second** RabbitMQ node on `5673` with a `leadpusher` user + vhost, then keep the
+`.env` values as shipped. Do **not** point `RABBITMQ_URL`/`REDIS_*` at a shared broker
+unless you intend its queues to be visible there.
 
 XAMPP must be running with Apache so stored files are reachable at
 `FILE_BASE_URL`. Create the base folder once:

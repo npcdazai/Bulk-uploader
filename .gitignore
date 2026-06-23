@@ -1,0 +1,22 @@
+# claude code local config
+.claude/
+
+# dependencies
+node_modules/
+
+# env / secrets
+.env
+.env.local
+*.local
+
+# local working dirs / generated artifacts
+downloads/
+tmp-uploads/
+htdocs-store/
+dist/
+.pm2/
+
+# logs & os
+*.log
+npm-debug.log*
+.DS_Store

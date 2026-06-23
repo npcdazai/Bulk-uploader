@@ -1,0 +1,11 @@
+node_modules/
+.env
+*.log
+
+# local working dirs / generated artifacts (never commit leads or results)
+downloads/
+tmp-uploads/
+htdocs-store/
+.pm2/
+npm-debug.log*
+.DS_Store

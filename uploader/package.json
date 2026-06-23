@@ -1,0 +1,35 @@
+{
+  "name": "lead-pusher-uploader",
+  "version": "1.0.0",
+  "description": "Bulk lead-distribution pipeline (5 cooperating workers) — XAMPP/htdocs file store, Redis state, RabbitMQ work queue.",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start:server": "node src/server.js",
+    "start:watcher": "node src/storeWatcher.js",
+    "start:downloader": "node src/storeDownloader.js",
+    "start:producer": "node src/fileReaderAndPublisher.js",
+    "start:consumer": "node src/consumer.js",
+    "pm2:start": "pm2 start ecosystem.config.json",
+    "pm2:stop": "pm2 stop ecosystem.config.json",
+    "pm2:logs": "pm2 logs",
+    "test": "node --test \"tests/**/*.test.js\""
+  },
+  "dependencies": {
+    "amqplib": "^0.10.4",
+    "axios": "^1.7.7",
+    "bottleneck": "^2.19.5",
+    "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
+    "express": "^4.21.0",
+    "ioredis": "^5.4.1",
+    "luxon": "^3.5.0",
+    "multer": "^1.4.5-lts.1",
+    "p-limit": "^6.1.0"
+  },
+  "devDependencies": {
+    "pm2": "^5.4.2"
+  }
+}

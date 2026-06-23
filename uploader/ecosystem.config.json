@@ -1,0 +1,49 @@
+{
+  "apps": [
+    {
+      "name": "lp-server",
+      "script": "src/server.js",
+      "instances": 1,
+      "autorestart": true,
+      "max_memory_restart": "400M",
+      "kill_timeout": 8000,
+      "env": { "NODE_ENV": "production" }
+    },
+    {
+      "name": "lp-watcher",
+      "script": "src/storeWatcher.js",
+      "instances": 1,
+      "autorestart": true,
+      "max_memory_restart": "250M",
+      "kill_timeout": 5000,
+      "env": { "NODE_ENV": "production" }
+    },
+    {
+      "name": "lp-downloader",
+      "script": "src/storeDownloader.js",
+      "instances": 1,
+      "autorestart": true,
+      "max_memory_restart": "300M",
+      "kill_timeout": 5000,
+      "env": { "NODE_ENV": "production" }
+    },
+    {
+      "name": "lp-producer",
+      "script": "src/fileReaderAndPublisher.js",
+      "instances": 1,
+      "autorestart": true,
+      "max_memory_restart": "500M",
+      "kill_timeout": 35000,
+      "env": { "NODE_ENV": "production" }
+    },
+    {
+      "name": "lp-consumer",
+      "script": "src/consumer.js",
+      "instances": 1,
+      "autorestart": true,
+      "max_memory_restart": "500M",
+      "kill_timeout": 35000,
+      "env": { "NODE_ENV": "production" }
+    }
+  ]
+}

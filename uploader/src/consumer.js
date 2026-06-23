@@ -16,6 +16,7 @@ import { isRetryable } from './utils/callApi.js';
 import { getFormatter, isUsableLead } from './utils/formatter.js';
 import { buildSummaryBuffer } from './utils/excel.js';
 import { getPartnerApi } from './external-api/index.js';
+import { getProduct } from './config/products.js';
 
 /**
  * Process 5 — Consumer.
@@ -28,7 +29,6 @@ import { getPartnerApi } from './external-api/index.js';
  */
 const log = createLogger('consumer');
 const partner = getPartnerApi();
-const formatter = getFormatter(config.PARTNER);
 
 let channel = null;
 let running = true;
@@ -68,6 +68,7 @@ function applyControl(control) {
 // ---- summary buffer + flushing ---------------------------------------------
 const SUMMARY_COLUMNS = [
   { header: 'Row', key: 'rowNumber' },
+  { header: 'Product', key: 'product' },
   { header: 'Name', key: 'name' },
   { header: 'Mobile', key: 'mobile' },
   { header: 'PAN', key: 'pan' },
@@ -126,8 +127,12 @@ async function handle(msg) {
   const attempts = Number(msg.properties.headers?.['x-attempts'] || 0);
   applyControl(payload.control);
 
+  // Resolve which product these leads target -> formatter + partner method + dedupe.
+  const product = getProduct(payload.product);
+  const formatter = getFormatter(product.formatter);
+
   const rowNumber = payload.rowNumber ?? '';
-  const base = { rowNumber, fileKey: payload.fileKey || '', processedAt: DateTime.now().toISO() };
+  const base = { rowNumber, product: product.key, fileKey: payload.fileKey || '', processedAt: DateTime.now().toISO() };
 
   // 1) format + skip non-usable / empty rows
   const lead = formatter(payload.row || {});
@@ -137,33 +142,41 @@ async function handle(msg) {
     return;
   }
 
-  // 2) dedupe-check
-  const dedupe = await partner.checkDedupe(lead);
-  if (!dedupe.success) {
-    if (isRetryable(dedupe.statusCode)) return retryOrFail(msg, payload, attempts, base, lead, `dedupe ${dedupe.statusCode}`);
-    record({ ...base, ...leadCols(lead), action: 'FAILED', status: 'DEDUPE_ERROR', statusCode: dedupe.statusCode, message: dedupe.raw?.error?.message || 'dedupe failed' });
+  // 2) optional dedupe-check (personal loan); gold/housing endpoints dedupe internally
+  if (product.dedupe && typeof partner.checkDedupe === 'function') {
+    const dedupe = await partner.checkDedupe(lead);
+    if (!dedupe.success) {
+      if (isRetryable(dedupe.statusCode)) return retryOrFail(msg, payload, attempts, base, lead, `dedupe ${dedupe.statusCode}`);
+      record({ ...base, ...leadCols(lead), action: 'FAILED', status: 'DEDUPE_ERROR', statusCode: dedupe.statusCode, message: dedupe.raw?.error?.message || 'dedupe failed' });
+      channel.ack(msg);
+      return;
+    }
+    // duplicate / not-eligible -> SKIP push (the critical decision)
+    if (dedupe.duplicate) {
+      record({ ...base, ...leadCols(lead), action: 'DUPLICATE', status: 'SKIPPED', statusCode: dedupe.statusCode, message: dedupe.message || 'Duplicate — push skipped' });
+      channel.ack(msg);
+      return;
+    }
+  }
+
+  // 3) push the lead to the product's endpoint (create-lead / gold-loans / housing-loan)
+  const pushFn = partner[product.method];
+  if (typeof pushFn !== 'function') {
+    record({ ...base, ...leadCols(lead), action: 'FAILED', status: 'CONFIG_ERROR', statusCode: '', message: `partner has no method "${product.method}" for product ${product.key}` });
     channel.ack(msg);
     return;
   }
 
-  // 3) duplicate / not-eligible -> SKIP create-lead (the critical decision)
-  if (dedupe.duplicate) {
-    record({ ...base, ...leadCols(lead), action: 'DUPLICATE', status: 'SKIPPED', statusCode: dedupe.statusCode, message: dedupe.message || 'Duplicate — create skipped' });
+  const pushed = await pushFn(lead);
+  if (!pushed.success) {
+    if (isRetryable(pushed.statusCode)) return retryOrFail(msg, payload, attempts, base, lead, `${product.method} ${pushed.statusCode}`);
+    record({ ...base, ...leadCols(lead), action: 'FAILED', status: pushed.status || 'PUSH_ERROR', statusCode: pushed.statusCode, message: pushed.raw?.error?.body?.message || pushed.raw?.error?.message || 'push failed' });
     channel.ack(msg);
     return;
   }
 
-  // 4) create-lead (only reached for non-duplicates)
-  const created = await partner.createLead(lead);
-  if (!created.success) {
-    if (isRetryable(created.statusCode)) return retryOrFail(msg, payload, attempts, base, lead, `create ${created.statusCode}`);
-    record({ ...base, ...leadCols(lead), action: 'FAILED', status: created.status || 'CREATE_ERROR', statusCode: created.statusCode, message: created.raw?.error?.body?.message || created.raw?.error?.message || 'create failed' });
-    channel.ack(msg);
-    return;
-  }
-
-  const action = created.status === 'ALREADY_EXISTS' ? 'ALREADY_EXISTS' : 'CREATED';
-  record({ ...base, ...leadCols(lead), action, leadId: created.leadId || '', status: created.status || 'CREATED', statusCode: created.statusCode, message: '' });
+  const action = pushed.status === 'ALREADY_EXISTS' ? 'ALREADY_EXISTS' : 'CREATED';
+  record({ ...base, ...leadCols(lead), action, leadId: pushed.leadId || '', status: pushed.status || 'CREATED', statusCode: pushed.statusCode, message: '' });
   if (payload.redisKey) getRedis().hincrby(payload.redisKey, 'pushedRows', 1).catch(() => {});
   channel.ack(msg);
 }

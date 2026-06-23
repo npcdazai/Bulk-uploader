@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
+import { useParams, Navigate, Link as RouterLink } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -14,7 +15,12 @@ import {
 } from '@chakra-ui/react';
 import Dropzone from '@/components/Dropzone';
 import { useAuth } from '@/auth/AuthContext';
-import { uploadLeads, type HeaderValidationError, type UploadSuccess } from '@/api/upload';
+import {
+  uploadLeads,
+  PRODUCTS,
+  type HeaderValidationError,
+  type UploadSuccess,
+} from '@/api/upload';
 
 interface FormValues {
   batchSize: number;
@@ -45,6 +51,9 @@ const schema: yup.ObjectSchema<FormValues> = yup.object({
 
 export default function UploadPage() {
   const { username, logout } = useAuth();
+  const { product: productParam } = useParams<{ product: string }>();
+  const product = PRODUCTS.find((p) => p.key === productParam);
+
   const [success, setSuccess] = useState<UploadSuccess | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [validation, setValidation] = useState<HeaderValidationError | null>(null);
@@ -67,12 +76,14 @@ export default function UploadPage() {
   const file = watch('file');
 
   const onSubmit = async (values: FormValues) => {
+    if (!product) return;
     setSuccess(null);
     setErrorMsg(null);
     setValidation(null);
     try {
       const res = await uploadLeads({
         file: values.file as File,
+        product: product.key,
         batchSize: values.batchSize,
         delayBetweenBatches: values.delayBetweenBatches,
       });
@@ -85,12 +96,15 @@ export default function UploadPage() {
     }
   };
 
+  // unknown product in the URL -> back to the product picker
+  if (!product) return <Navigate to="/" replace />;
+
   return (
     <Box minH="100vh" bg="gray.100" py={10} px={4}>
       <Box maxW="640px" mx="auto">
-        <Flex justify="space-between" align="center" mb={6}>
+        <Flex justify="space-between" align="center" mb={2}>
           <Box>
-            <Heading size="lg">Upload Leads</Heading>
+            <Heading size="lg">Upload {product.label} Leads</Heading>
             <Text color="gray.500" fontSize="sm">
               Signed in as {username}
             </Text>
@@ -100,8 +114,48 @@ export default function UploadPage() {
           </Button>
         </Flex>
 
+        <Box mb={6}>
+          <RouterLink to="/">
+            <Text as="span" fontSize="sm" color="blue.600" fontWeight="medium">
+              ← Change product
+            </Text>
+          </RouterLink>
+        </Box>
+
         <Box bg="white" p={6} borderRadius="xl" boxShadow="sm">
           <Stack gap={5} as="form" onSubmit={handleSubmit(onSubmit)}>
+            <Field label="Product" error={errors.product?.message as string | undefined} hint="Which lender product to push these leads to">
+              <SimpleGrid columns={{ base: 1, sm: 3 }} gap={3}>
+                {PRODUCTS.map((p) => {
+                  const selected = product === p.key;
+                  return (
+                    <Box
+                      key={p.key}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setValue('product', p.key, { shouldValidate: true })}
+                      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setValue('product', p.key, { shouldValidate: true })}
+                      borderWidth="2px"
+                      borderColor={selected ? 'blue.500' : 'gray.200'}
+                      bg={selected ? 'blue.50' : 'white'}
+                      borderRadius="lg"
+                      p={3}
+                      cursor="pointer"
+                      transition="all 0.15s"
+                      _hover={{ borderColor: 'blue.400' }}
+                    >
+                      <Text fontWeight="semibold" color={selected ? 'blue.700' : 'gray.800'}>
+                        {p.label}
+                      </Text>
+                      <Text fontSize="xs" color="gray.500" mt={1}>
+                        {p.description}
+                      </Text>
+                    </Box>
+                  );
+                })}
+              </SimpleGrid>
+            </Field>
+
             <SimpleGrid columns={{ base: 1, sm: 2 }} gap={4}>
               <Field label="Batch Size" error={errors.batchSize?.message} hint="Leads per batch before the delay">
                 <Input type="number" {...register('batchSize')} />
@@ -129,8 +183,8 @@ export default function UploadPage() {
             {success && (
               <Alert tone="success" title="Upload accepted">
                 <Text fontSize="sm">
-                  Stored as <code>{success.key}</code>. The pipeline will process it with batch size{' '}
-                  {success.batchSize} and {success.delayBetweenBatches}ms delay.
+                  <b>{success.productLabel}</b> leads stored as <code>{success.key}</code>. The pipeline will push them
+                  with batch size {success.batchSize} and {success.delayBetweenBatches}ms delay.
                 </Text>
                 <Text fontSize="sm" mt={1}>
                   URL:{' '}

@@ -3,6 +3,7 @@ import { createLogger } from './lib/logger.js';
 import { listObjects } from './lib/fileStore.js';
 import { vendorPrefix, isUploadedKey } from './lib/keys.js';
 import { getRedis, fileKey, scanFileKeys, storeKeyFromHashKey } from './lib/redis.js';
+import { DEFAULT_PRODUCT } from './config/products.js';
 
 /**
  * Process 2 — Store Watcher.
@@ -21,6 +22,7 @@ const DEFAULT_HASH = () => ({
   downloadPath: '',
   totalRows: '0',
   pushedRows: '0',
+  product: DEFAULT_PRODUCT,
   batchSize: String(config.DEFAULT_BATCH_SIZE),
   delayBetweenBatches: String(config.DEFAULT_DELAY_BETWEEN_BATCHES),
   originalName: '',

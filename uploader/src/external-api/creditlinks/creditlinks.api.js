@@ -120,7 +120,15 @@ export async function getSummary(leadId) {
 export async function goldLoans(lead) {
   const raw = await postJson('/api/v2/partner/gold-loans', withDefaults(lead));
   const body = raw.data || {};
-  return { success: raw.success, statusCode: raw.statusCode, leadId: body.leadId ?? null, status: body.message || (raw.success ? 'CREATED' : 'FAILED'), offers: body.offers || [], raw };
+  const alreadyExists = typeof body.message === 'string' && /already created/i.test(body.message);
+  return {
+    success: raw.success,
+    statusCode: raw.statusCode,
+    leadId: body.leadId ?? null,
+    status: raw.success ? (alreadyExists ? 'ALREADY_EXISTS' : 'CREATED') : (body.message || 'FAILED'),
+    offers: Array.isArray(body.offers) ? body.offers : [],
+    raw,
+  };
 }
 
 export async function goldLoansStatus(leadId) {
@@ -132,7 +140,15 @@ export async function goldLoansStatus(leadId) {
 export async function housingLoan(lead) {
   const raw = await postJson('/api/v2/partner/housing-loan', withDefaults(lead));
   const body = raw.data || {};
-  return { success: raw.success, statusCode: raw.statusCode, leadId: body.leadId ?? null, status: body.message || (raw.success ? 'CREATED' : 'FAILED'), offers: body.offers || [], raw };
+  const alreadyExists = typeof body.message === 'string' && /already created/i.test(body.message);
+  return {
+    success: raw.success,
+    statusCode: raw.statusCode,
+    leadId: body.leadId ?? null,
+    status: raw.success ? (alreadyExists ? 'ALREADY_EXISTS' : 'CREATED') : (body.message || 'FAILED'),
+    offers: Array.isArray(body.offers) ? body.offers : [],
+    raw,
+  };
 }
 
 export default {

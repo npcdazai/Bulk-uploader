@@ -9,7 +9,8 @@ import { putObject } from './lib/fileStore.js';
 import { uploadedKey } from './lib/keys.js';
 import { getRedis, fileKey } from './lib/redis.js';
 import { readHeaderRow } from './utils/excel.js';
-import { REQUIRED_HEADERS, HEADER_ALIASES, normalizeHeader } from './config/headers.js';
+import { requiredHeadersFor, HEADER_ALIASES, normalizeHeader } from './config/headers.js';
+import { getProduct, isValidProduct, DEFAULT_PRODUCT, PRODUCT_KEYS } from './config/products.js';
 
 /**
  * Process 1 — HTTP API.
@@ -45,14 +46,14 @@ app.use((req, res, next) => {
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({ ok: true, vendor: config.VENDOR_FOLDER_NAME, partner: config.PARTNER });
+  res.json({ ok: true, vendor: config.VENDOR_FOLDER_NAME, partner: config.PARTNER, products: PRODUCT_KEYS });
 });
 
-/** Validate uploaded headers against REQUIRED_HEADERS (alias + case tolerant). */
-function validateHeaders(uploadedHeaders) {
+/** Validate uploaded headers against the product's required headers (alias + case tolerant). */
+function validateHeaders(uploadedHeaders, requiredHeaders) {
   const present = new Set(uploadedHeaders.map(normalizeHeader));
   const missingHeaders = [];
-  for (const required of REQUIRED_HEADERS) {
+  for (const required of requiredHeaders) {
     const aliases = HEADER_ALIASES[required] || [required];
     const satisfied = aliases.some((a) => present.has(normalizeHeader(a)));
     if (!satisfied) missingHeaders.push(required);
@@ -71,7 +72,12 @@ app.post('/api/upload', requireToken, upload.single('file'), async (req, res) =>
       return res.status(400).json({ error: 'Only .xlsx files are supported' });
     }
 
-    // 1) Validate headers (streaming read of the first row only).
+    // 0) Resolve the target product (which endpoint these leads are pushed to).
+    const productKey = isValidProduct(req.body.product) ? req.body.product : DEFAULT_PRODUCT;
+    const product = getProduct(productKey);
+    const requiredHeaders = requiredHeadersFor(productKey);
+
+    // 1) Validate headers for the chosen product (streaming read of the first row only).
     let uploadedHeaders = [];
     try {
       uploadedHeaders = await readHeaderRow(tmpPath);
@@ -81,14 +87,15 @@ app.post('/api/upload', requireToken, upload.single('file'), async (req, res) =>
       return res.status(400).json({ error: 'Could not read the spreadsheet. Is it a valid .xlsx?' });
     }
 
-    const missingHeaders = validateHeaders(uploadedHeaders);
+    const missingHeaders = validateHeaders(uploadedHeaders, requiredHeaders);
     if (missingHeaders.length > 0) {
       await safeUnlink(tmpPath);
-      log.warn(`rejected upload "${req.file.originalname}" — missing: ${missingHeaders.join(', ')}`);
+      log.warn(`rejected upload "${req.file.originalname}" [${productKey}] — missing: ${missingHeaders.join(', ')}`);
       return res.status(400).json({
-        error: 'Uploaded file is missing required headers',
+        error: `Uploaded file is missing required headers for ${product.label}`,
+        product: productKey,
         missingHeaders,
-        requiredHeaders: REQUIRED_HEADERS,
+        requiredHeaders,
         uploadedHeaders,
       });
     }
@@ -109,6 +116,7 @@ app.post('/api/upload', requireToken, upload.single('file'), async (req, res) =>
       downloadPath: '',
       totalRows: '0',
       pushedRows: '0',
+      product: productKey,
       batchSize: String(batchSize),
       delayBetweenBatches: String(delayBetweenBatches),
       originalName: req.file.originalname,
@@ -118,8 +126,8 @@ app.post('/api/upload', requireToken, upload.single('file'), async (req, res) =>
     // 4) Drop the temp file.
     await safeUnlink(tmpPath);
 
-    log.info(`uploaded "${req.file.originalname}" -> ${key} (batchSize=${batchSize}, delay=${delayBetweenBatches}ms)`);
-    return res.status(201).json({ success: true, key, url, batchSize, delayBetweenBatches });
+    log.info(`uploaded "${req.file.originalname}" [${productKey}] -> ${key} (batchSize=${batchSize}, delay=${delayBetweenBatches}ms)`);
+    return res.status(201).json({ success: true, key, url, product: productKey, productLabel: product.label, batchSize, delayBetweenBatches });
   } catch (err) {
     await safeUnlink(tmpPath);
     log.error('upload failed:', err.message);

@@ -170,46 +170,42 @@ function employmentStatusCode(row) {
   return 1; // default: salaried
 }
 
-/**
- * CreditLinks Create Lead payload (Partner API v2.13).
- * Mandatory: mobileNumber, firstName, lastName, pan, dob (yyyy-MM-dd), email,
- * pincode, monthlyIncome, consumerConsentDate, consumerConsentIp,
- * employmentStatus. Conditional fields depend on employmentStatus.
- */
-function creditlinksFormatter(row) {
+/** Fields common to every CreditLinks product payload. */
+function creditlinksBase(row) {
   const { firstName, lastName } = splitName(row);
-  const mobileNumber = normalizePhone(pick(row, ['Phone', 'Mobile', 'Mobile Number', 'Phone Number', 'Contact', 'mobileNumber']));
-  const email = cleanString(pick(row, ['Email', 'Email Id', 'E-mail', 'Email Address', 'email']));
-  const dob = formatDate(pick(row, ['Dob', 'DOB', 'Date Of Birth', 'Birth Date']), 'yyyy-MM-dd');
-  const pan = normalizePan(pick(row, ['Pan Number', 'PAN', 'Pan', 'Pan No']));
-  const pincode = digitsOnly(pick(row, ['Pincode', 'Pin Code', 'Pin', 'Zip', 'Postal Code']));
-  const monthlyIncome = digitsOnly(pick(row, ['Salary', 'Monthly Salary', 'Income', 'Monthly Income', 'monthlyIncome']));
-  const employmentStatus = employmentStatusCode(row);
-
   const consentRaw = pick(row, ['Consent Date', 'Consumer Consent Date', 'ConsentDate', 'consumerConsentDate']);
-  const consumerConsentDate = consentRaw
-    ? formatDateTime(consentRaw)
-    : DateTime.now().toFormat('yyyy-MM-dd HH:mm:ss');
-  const consumerConsentIp = cleanString(pick(row, ['Consent IP', 'Consumer Consent Ip', 'ConsentIp', 'IP', 'consumerConsentIp']));
-
-  const payload = {
-    mobileNumber,
+  return {
+    mobileNumber: normalizePhone(pick(row, ['Phone', 'Mobile', 'Mobile Number', 'Phone Number', 'Contact', 'mobileNumber'])),
     firstName,
     lastName,
-    pan,
-    dob,
-    email,
-    pincode,
-    monthlyIncome: monthlyIncome ? Number(monthlyIncome) : 0,
-    consumerConsentDate,
-    consumerConsentIp, // api layer fills the deployment default when blank
-    employmentStatus,
+    pan: normalizePan(pick(row, ['Pan Number', 'PAN', 'Pan', 'Pan No'])),
+    email: cleanString(pick(row, ['Email', 'Email Id', 'E-mail', 'Email Address', 'email'])),
+    pincode: digitsOnly(pick(row, ['Pincode', 'Pin Code', 'Pin', 'Zip', 'Postal Code'])),
+    consumerConsentDate: consentRaw ? formatDateTime(consentRaw) : DateTime.now().toFormat('yyyy-MM-dd HH:mm:ss'),
+    // api layer fills the deployment default when blank
+    consumerConsentIp: cleanString(pick(row, ['Consent IP', 'Consumer Consent Ip', 'ConsentIp', 'IP', 'consumerConsentIp'])),
   };
+}
+
+const dob = (row) => formatDate(pick(row, ['Dob', 'DOB', 'Date Of Birth', 'Birth Date']), 'yyyy-MM-dd');
+const monthlyIncome = (row) => {
+  const v = digitsOnly(pick(row, ['Salary', 'Monthly Salary', 'Income', 'Monthly Income', 'monthlyIncome']));
+  return v ? Number(v) : 0;
+};
+
+/**
+ * Personal Loan — CreditLinks Create Lead API.
+ * Adds dob, monthlyIncome, employmentStatus and the employment-conditional fields.
+ */
+function creditlinksPersonalFormatter(row) {
+  const payload = { ...creditlinksBase(row), dob: dob(row), monthlyIncome: monthlyIncome(row) };
+  const employmentStatus = employmentStatusCode(row);
+  payload.employmentStatus = employmentStatus;
 
   if (employmentStatus === 1) {
     // Salaried -> employerName + officePincode are required.
     payload.employerName = cleanString(pick(row, ['Employer Name', 'Employer', 'Company', 'Company Name'])) || 'NA';
-    payload.officePincode = digitsOnly(pick(row, ['Office Pincode', 'Office Pin', 'Work Pincode'])) || pincode;
+    payload.officePincode = digitsOnly(pick(row, ['Office Pincode', 'Office Pin', 'Work Pincode'])) || payload.pincode;
   } else {
     // Self-employed -> businessRegistrationType required; default 8 ("No business
     // proof") so the further conditional fields are not demanded for bulk leads.
@@ -222,18 +218,49 @@ function creditlinksFormatter(row) {
       payload.businessAccount = Number(digitsOnly(pick(row, ['Business Account', 'businessAccount']))) || 2;
     }
   }
-
   return payload;
+}
+
+/**
+ * Gold Loan — CreditLinks Gold Loans API.
+ * Adds loanAmount. (No dob / monthlyIncome / employmentStatus.)
+ */
+function creditlinksGoldFormatter(row) {
+  const loanAmount = digitsOnly(pick(row, ['Loan Amount', 'LoanAmount', 'Amount', 'Required Loan Amount', 'loanAmount']));
+  return {
+    ...creditlinksBase(row),
+    loanAmount: loanAmount ? Number(loanAmount) : 0,
+  };
+}
+
+/**
+ * Housing Loan — CreditLinks Housing Loan API.
+ * Adds dob, monthlyIncome, housingLoanAmount, propertyType.
+ */
+function creditlinksHousingFormatter(row) {
+  const housingLoanAmount = digitsOnly(pick(row, ['Housing Loan Amount', 'HousingLoanAmount', 'Loan Amount', 'Amount', 'housingLoanAmount']));
+  return {
+    ...creditlinksBase(row),
+    dob: dob(row),
+    monthlyIncome: monthlyIncome(row),
+    housingLoanAmount: housingLoanAmount ? Number(housingLoanAmount) : 0,
+    propertyType: cleanString(pick(row, ['Property Type', 'PropertyType', 'Property', 'propertyType'])) || 'House',
+  };
 }
 
 const FORMATTERS = {
   creditmitra: creditmitraFormatter,
-  creditlinks: creditlinksFormatter,
+  // CreditLinks per-product formatters (selected via config/products.js)
+  creditlinks: creditlinksPersonalFormatter, // default alias = personal
+  creditlinksPersonal: creditlinksPersonalFormatter,
+  creditlinksGold: creditlinksGoldFormatter,
+  creditlinksHousing: creditlinksHousingFormatter,
 };
 
-export function getFormatter(partner) {
-  const fmt = FORMATTERS[String(partner).toLowerCase()];
-  if (!fmt) throw new Error(`No lead formatter registered for partner "${partner}"`);
+export function getFormatter(name) {
+  // try exact (product formatter keys are camelCase) then lowercase (partner ids)
+  const fmt = FORMATTERS[name] || FORMATTERS[String(name).toLowerCase()];
+  if (!fmt) throw new Error(`No lead formatter registered for "${name}"`);
   return fmt;
 }
 

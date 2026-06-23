@@ -41,6 +41,7 @@ async function processFile({ hk, storeKey, hash }) {
     batchSize: Number(hash.batchSize) || config.DEFAULT_BATCH_SIZE,
     delayBetweenBatches: Number(hash.delayBetweenBatches) || config.DEFAULT_DELAY_BETWEEN_BATCHES,
   };
+  const product = hash.product || 'personal';
 
   const reader = new ExcelJS.stream.xlsx.WorkbookReader(hash.downloadPath, {
     sharedStrings: 'cache',
@@ -79,6 +80,7 @@ async function processFile({ hk, storeKey, hash }) {
       publishLead(channel, {
         vendor: config.VENDOR_FOLDER_NAME,
         partner: config.PARTNER,
+        product,
         fileKey: storeKey,
         redisKey: hk,
         rowNumber,

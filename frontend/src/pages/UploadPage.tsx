@@ -124,37 +124,14 @@ export default function UploadPage() {
 
         <Box bg="white" p={6} borderRadius="xl" boxShadow="sm">
           <Stack gap={5} as="form" onSubmit={handleSubmit(onSubmit)}>
-            <Field label="Product" error={errors.product?.message as string | undefined} hint="Which lender product to push these leads to">
-              <SimpleGrid columns={{ base: 1, sm: 3 }} gap={3}>
-                {PRODUCTS.map((p) => {
-                  const selected = product === p.key;
-                  return (
-                    <Box
-                      key={p.key}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setValue('product', p.key, { shouldValidate: true })}
-                      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setValue('product', p.key, { shouldValidate: true })}
-                      borderWidth="2px"
-                      borderColor={selected ? 'blue.500' : 'gray.200'}
-                      bg={selected ? 'blue.50' : 'white'}
-                      borderRadius="lg"
-                      p={3}
-                      cursor="pointer"
-                      transition="all 0.15s"
-                      _hover={{ borderColor: 'blue.400' }}
-                    >
-                      <Text fontWeight="semibold" color={selected ? 'blue.700' : 'gray.800'}>
-                        {p.label}
-                      </Text>
-                      <Text fontSize="xs" color="gray.500" mt={1}>
-                        {p.description}
-                      </Text>
-                    </Box>
-                  );
-                })}
-              </SimpleGrid>
-            </Field>
+            <Box bg="blue.50" borderRadius="md" px={4} py={3}>
+              <Text fontSize="sm" color="blue.800">
+                <b>Product:</b> {product.label}
+              </Text>
+              <Text fontSize="xs" color="blue.700" mt={0.5}>
+                {product.description}
+              </Text>
+            </Box>
 
             <SimpleGrid columns={{ base: 1, sm: 2 }} gap={4}>
               <Field label="Batch Size" error={errors.batchSize?.message} hint="Leads per batch before the delay">

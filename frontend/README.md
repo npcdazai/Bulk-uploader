@@ -5,10 +5,15 @@ react-router-dom. Uses a `@/` path alias (vite-tsconfig-paths).
 
 ## Features
 - **Login gate** (`/login`) — client-side auth so the tool isn't left open.
-- **Upload page** (`/`, protected) — Batch Size, Delay Between Batches, and an
-  `.xlsx` dropzone. Validates with yup, POSTs `multipart/form-data` to
-  `{VITE_BASEURL}/api/upload`, shows success, and renders backend header-validation
-  errors (missing / required / found headers) as a readable alert.
+- **Product selection** (`/`, protected) — first screen after login: pick the
+  lender product to push leads to (Personal Loan / Gold Loan / Housing Loan).
+  Selecting one opens its upload form.
+- **Upload page** (`/upload/:product`, protected) — Batch Size, Delay Between
+  Batches, and an `.xlsx` dropzone for the chosen product. Validates with yup,
+  POSTs `multipart/form-data` (incl. `product`) to `{VITE_BASEURL}/api/upload`,
+  shows success, and renders backend header-validation errors (missing / required
+  / found headers — which vary per product) as a readable alert. A "Change
+  product" link returns to the selection screen.
 
 ## Setup
 ```bash

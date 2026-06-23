@@ -1,14 +1,16 @@
 # ──────────────────────────────────────────────────────────────────────────
 #  DEDICATED, ISOLATED infra for Lead Pusher ONLY.
 #
-#  These run on NON-DEFAULT ports with their own credentials + vhost so they are
-#  completely separate processes from any other RabbitMQ / Redis on this machine
-#  (or elsewhere). This project's queues and keys therefore never appear in any
-#  other broker's management portal — and nothing from other brokers appears here.
+#  These run on UNIQUE, non-default ports with their own credentials + vhost so
+#  they are completely separate processes from any other RabbitMQ / Redis on this
+#  machine (or elsewhere). This project's queues and keys therefore never appear
+#  in any other broker's portal — and nothing from other brokers appears here.
 #
-#    RabbitMQ AMQP : localhost:5673   (container 5672)
-#    RabbitMQ UI   : http://localhost:15673   (user/pass: leadpusher / leadpusher)
-#    Redis         : localhost:6380   (container 6379)
+#  Ports sit in a distinctive 353xx block (far from the 5672/6379 defaults, so
+#  they won't collide), with recognizable suffixes:
+#    RabbitMQ AMQP : localhost:35672   (container 5672)
+#    RabbitMQ UI   : http://localhost:35673   (user/pass: leadpusher / leadpusher)
+#    Redis         : localhost:35379   (container 6379)
 #
 #  Start:  docker compose up -d        Stop:  docker compose down
 # ──────────────────────────────────────────────────────────────────────────
@@ -22,8 +24,8 @@ services:
       RABBITMQ_DEFAULT_PASS: leadpusher
       RABBITMQ_DEFAULT_VHOST: leadpusher
     ports:
-      - "5673:5672"    # AMQP
-      - "15673:15672"  # management UI (separate from any other RabbitMQ portal)
+      - "35672:5672"   # AMQP
+      - "35673:15672"  # management UI (separate from any other RabbitMQ portal)
     volumes:
       - leadpusher_rabbitmq:/var/lib/rabbitmq
     restart: unless-stopped
@@ -38,7 +40,7 @@ services:
     container_name: leadpusher-redis
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "6380:6379"
+      - "35379:6379"
     volumes:
       - leadpusher_redis:/data
     restart: unless-stopped

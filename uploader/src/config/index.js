@@ -39,7 +39,7 @@ const LOCAL_DOWNLOAD_DIR = path.resolve(str(env.LOCAL_DOWNLOAD_DIR, 'downloads')
 // — or appears in the management portal of — any other RabbitMQ/Redis.
 const redis = {
   host: str(env.REDIS_HOST, '127.0.0.1'),
-  port: int(env.REDIS_PORT, 6380), // dedicated Redis (compose maps 6380 -> 6379)
+  port: int(env.REDIS_PORT, 35379), // dedicated Redis (compose maps 35379 -> 6379)
   password: env.REDIS_PASSWORD || undefined,
   db: int(env.REDIS_DB, 0),
   keyPrefix: '', // we build fully-qualified keys ourselves (vendor namespaced)
@@ -47,8 +47,8 @@ const redis = {
 
 // ---- RabbitMQ ---------------------------------------------------------------
 const rabbit = {
-  // dedicated broker on :5673 with its own user + vhost "leadpusher"
-  url: str(env.RABBITMQ_URL, 'amqp://leadpusher:leadpusher@localhost:5673/leadpusher'),
+  // dedicated broker on :35672 with its own user + vhost "leadpusher"
+  url: str(env.RABBITMQ_URL, 'amqp://leadpusher:leadpusher@localhost:35672/leadpusher'),
   // queue/exchange names are vendor-namespaced
   queue: `${VENDOR_FOLDER_NAME}.leads`,
   retryQueue: `${VENDOR_FOLDER_NAME}.leads.retry`,

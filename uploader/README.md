@@ -73,11 +73,11 @@ own credentials + vhost, so its queues/keys are physically separate from any oth
 broker/cache on the machine and **never appear in another tool's management portal**
 (and nothing from other brokers appears here).
 
-| Service | This project | Default (other tools) |
-|---------|--------------|-----------------------|
-| RabbitMQ AMQP | `localhost:5673` (vhost `leadpusher`) | 5672 |
-| RabbitMQ UI | http://localhost:15673 | 15672 |
-| Redis | `localhost:6380` | 6379 |
+| Service | This project (unique 353xx block) | Default (other tools) |
+|---------|-----------------------------------|-----------------------|
+| RabbitMQ AMQP | `localhost:35672` (vhost `leadpusher`) | 5672 |
+| RabbitMQ UI | http://localhost:35673 | 15672 |
+| Redis | `localhost:35379` | 6379 |
 
 ```bash
 # Recommended: dedicated instances via Docker (isolated by construction)
@@ -86,8 +86,8 @@ docker compose up -d            # starts leadpusher-rabbitmq + leadpusher-redis
 docker compose down             # stop
 ```
 
-Native alternative (if you can't use Docker): run a **second** Redis on `6380` and a
-**second** RabbitMQ node on `5673` with a `leadpusher` user + vhost, then keep the
+Native alternative (if you can't use Docker): run a **second** Redis on `35379` and a
+**second** RabbitMQ node on `35672` with a `leadpusher` user + vhost, then keep the
 `.env` values as shipped. Do **not** point `RABBITMQ_URL`/`REDIS_*` at a shared broker
 unless you intend its queues to be visible there.
 

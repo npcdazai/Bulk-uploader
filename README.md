@@ -17,9 +17,9 @@ Files are stored in **XAMPP / Apache `htdocs`** (in place of S3).
 
 ## Quick start
 ```bash
-# 1) infra — DEDICATED, isolated Redis + RabbitMQ (own ports, won't mix with
-#    or appear in any other broker's portal). Runs RabbitMQ :5673 / UI :15673
-#    and Redis :6380.
+# 1) infra — DEDICATED, isolated Redis + RabbitMQ (own unique ports, won't mix
+#    with or appear in any other broker's portal). Runs RabbitMQ :35672 / UI
+#    :35673 and Redis :35379.
 cd uploader && docker compose up -d
 # start XAMPP (Apache) and: mkdir -p "$HTDOCS_BASE_PATH"
 
